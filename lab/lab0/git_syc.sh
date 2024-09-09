@@ -1,3 +1,3 @@
 git add .
-git commit -m "added telnet.sh, traceroute.sh, git_syc.sh"
+git commit -m "added remaining shell scripts"
 git push origin main
