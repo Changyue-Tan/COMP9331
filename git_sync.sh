@@ -1,3 +1,3 @@
 git add .
-git commit -m "mics commit"
+git commit -m "commit lab 01 first attempt"
 git push origin main

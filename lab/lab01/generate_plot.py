@@ -32,3 +32,5 @@ plt.grid(True, linestyle='--', alpha=0.7)
 
 # Show the plot
 plt.show()
+
+plt.savefig('plot.pdf')
