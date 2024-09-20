@@ -8,8 +8,13 @@ Uncomment the designated lists and replace them with the actual values.
 Once updated, execute the command 'python3 generate_plot.py' to generate the plot.
 Feel free to make any necessary customizations to suit your preferences.
 """
-distances = [3134, 15051, 16278]
-ratios = [5.2, 4.68, 5.23]
+# template data:
+# distances = [3134, 15051, 16278]
+# ratios = [5.2, 4.68, 5.23]
+
+# my data:
+distances = [3149, 14989, 16328]
+ratios = [5.4, 4.35, 5.72]
 
 # Create scatter plot
 plt.scatter(distances, ratios, color='blue')
