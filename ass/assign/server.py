@@ -4,20 +4,26 @@ import sys
 import datetime
 
 class BitTrickleClient:
-    def __init__(self, username, address):
+    def __init__(self, username, client_address):
         self.username = username
-        self.address = address  # (IP, port) tuple
+        self.address = client_address  # (IP, port) tuple
+        self.availability = False
     
     def __str__(self):
         return f"Client(username={self.username}, address={self.address})"
 
 class BitTrickleServer:
-    def __init__(self, port, credentials_dict):
-        self.port = port
-        self.credentials = credentials_dict
-        self.online_clients = set()
+    def __init__(self, server_port, credentials_file):
+
+        self.credentials = {}
+        with open(credentials_file, 'r') as f:
+            for line in f:
+                username, password = line.split(' ')
+                self.credentials[username] = password
+            
+        self.active_clients = {}
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_socket.bind(('127.0.0.1', port))
+        self.server_socket.bind(('127.0.0.1', server_port))
 
     def authenticate(self, username, password):
         if username in self.credentials and self.credentials[username] == password:
@@ -25,7 +31,7 @@ class BitTrickleServer:
         else:
             return False
 
-    def handle_payload(self, payload, client_address):
+    def handle_client(self, payload, client_address):
         
         message = payload.decode().split(' ')
         code = message[0]
@@ -42,7 +48,7 @@ class BitTrickleServer:
 
         if self.authenticate(username, password):
             client = BitTrickleClient(username, client_address)
-            self.online_clients.add(client) 
+            self.active_clients[client_address] = client
             response = "OK"
         else:
             response = "ERR"
@@ -55,23 +61,18 @@ class BitTrickleServer:
 
 
 
-def load_credentials(credentials_file):
-    credentials = {}
-    with open(credentials_file, 'r') as f:
-        for line in f:
-            username, password = line.strip().split(' ')
-            credentials[username] = password
-    return credentials 
+
 
 
 if __name__ == "__main__":
 
-    creddentials_dict = load_credentials('credentials.txt')
-    server = BitTrickleServer(int(sys.argv[1]), creddentials_dict) 
+    credentials_file = 'credentials.txt'
+    server_port = int(sys.argv[1])
+    server = BitTrickleServer(server_port, credentials_file) 
 
-    print(f"Server is listening on port {server.port} for authetication requests...")
+    print(f"Server is listening for authetication requests...")
     
     while True:
         payload, client_address = server.server_socket.recvfrom(1024)
-        client_thread = threading.Thread(target=server.handle_payload, args=(payload, client_address))
+        client_thread = threading.Thread(target=server.handle_client, args=(payload, client_address))
         client_thread.start()
