@@ -1,6 +1,7 @@
 import socket
 import threading
 import sys
+import datetime
 
 class BitTrickleClient:
     def __init__(self, username, address):
@@ -24,25 +25,33 @@ class BitTrickleServer:
         else:
             return False
 
-    def handle_client(self, data, client_address):
-        try:
-            username, password = data.decode().split(' ')
-        except ValueError:
-            self.server_socket.sendto("Invalid input format".encode(), client_address)
-            return
+    def handle_payload(self, payload, client_address):
+        
+        message = payload.decode().split(' ')
+        code = message[0]
+
+        if code == 'AUTH':
+            username = message[1]
+            password = message[2]
+            print(f"Received {code} from {username}")
+            self.authenticate(username, password)
+        else:
+            pass
+
+ 
 
         if self.authenticate(username, password):
             client = BitTrickleClient(username, client_address)
             self.online_clients.add(client) 
-            response = "Authentication successful"
-            print(f"Success. Client authenticated: {client}")
-            print("current online clients:")
-            print(self.online_clients)
+            response = "OK"
         else:
-            response = "Authentication failed"
-            print(f"Failed. Sent failure notice to {client}")
-
+            response = "ERR"
+        
+        current_time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        client_port = client_address[1]
         self.server_socket.sendto(response.encode(), client_address)
+        print(f"{current_time}: {client_port}: Sent {response} to {username}")
+
 
 
 
@@ -58,12 +67,11 @@ def load_credentials(credentials_file):
 if __name__ == "__main__":
 
     creddentials_dict = load_credentials('credentials.txt')
-
     server = BitTrickleServer(int(sys.argv[1]), creddentials_dict) 
 
     print(f"Server is listening on port {server.port} for authetication requests...")
     
     while True:
-        data, client_address = server.server_socket.recvfrom(1024)
-        client_thread = threading.Thread(target=server.handle_client, args=(data, client_address))
+        payload, client_address = server.server_socket.recvfrom(1024)
+        client_thread = threading.Thread(target=server.handle_payload, args=(payload, client_address))
         client_thread.start()
