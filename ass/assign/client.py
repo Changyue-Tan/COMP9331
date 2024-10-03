@@ -111,42 +111,46 @@ HB_thread.start()
 # prompt for user cmd
 print("Available commands are: get, lap, lpf, pub, sch, unp, xit")
 while True:
-    command = input("> ").strip()
-
-    if command.startswith("get "):
-        filename = command.split(" ")[1]
-        print(f"Attempting to get file '{filename}' from active peers...")
-        continue
-
-    elif command == "lap":
-        handle_lap_request()
-        continue
-
-    elif command == "lpf":
-        handle_lpf_request()
-        continue
-
-    elif command.startswith("pub "):
-        filename = command.split(" ")[1]
-        handle_pub_request(filename)
-        continue
-
-    elif command.startswith("sch "):
-        substring = command.split(" ")[1]
-        print(f"Searching for files containing '{substring}'...")
-        continue
-
-    elif command.startswith("unp "):
-        filename = command.split(" ")[1]
-        handle_unp_request(filename)
-        continue
-
-    elif command == "xit":
-        print("Exiting BitTrickle...")
-        break
-
-    else:
-        print("Unknown command. Please try again.")
+    command = input("> ").strip().split(" ")
+    request_type = command[0]
+    request_content = None
+    if len(command) > 1:
+        request_content = command[1]
+    
+    match request_type:
+        case "get":
+            if request_content == None:
+                print("Missing filename")
+            else:
+                filename = request_content
+                print(f"Attempting to get file '{filename}' from active peers...")
+        case "lap":
+            handle_lap_request()
+        case "lpf":
+            handle_lpf_request()
+        case "pub":
+            if request_content == None:
+                print("Missing filename")
+            else:
+                filename = request_content
+                handle_pub_request(filename)
+        case "sch":
+            if request_content == None:
+                print("Missing keyword")
+            else: 
+                keyword = request_content
+                print(f"Searching for files containing '{keyword}'...")
+        case "unp":
+            if request_content == None:
+                print("Missing filename")
+            else: 
+                filename = request_content
+                handle_unp_request(filename)
+        case "xit":
+            print("Exiting BitTrickle...")
+            break
+        case "_":
+            print("Unknown command. Please try again.")
 
 # stop heartbeat thread and close UDP cocket
 print("Stoping heartbeat...")

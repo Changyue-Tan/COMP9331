@@ -22,8 +22,12 @@ def display_msg_sent(client_port, response_type, username):
     print(f"{current_time}: {client_port}: {msg}")
 
 def check_active(username):
+    if username not in heartbeats_record:
+        return False
+    
     last_heartbeat_time = heartbeats_record[username]
     current_time = time.time()
+
     if username in active_clients:
         if (current_time - last_heartbeat_time) > 3:
             active_clients.remove(username)
@@ -69,6 +73,11 @@ def handle_HBT():
 
 def handle_LAP():
     receive_request("LAP")
+
+    for username in active_clients:
+        check_active(username)
+        if username not in active_clients:
+            break
 
     response_type = "OK"
     response_content = f"{len(active_clients)} " + " ".join(str(c) for c in active_clients)
@@ -123,7 +132,7 @@ heartbeats_record = {username: 0 for username in credentials}  # last heartbeat 
 published_files = {} # <filename: {set of clients with this file avaliable}>
 file_publishing_users = {username: set() for username in credentials} # <username: {set of files published by this user}>
 
-print(f"Server starting...")
+print("Server now starting...")
 while True:
     client_request, client_address = server_socket.recvfrom(1024)
     client_request = client_request.decode().split(' ')
