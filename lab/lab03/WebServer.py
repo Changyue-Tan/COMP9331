@@ -1,63 +1,105 @@
 import socket
 import os
+import sys
 
-# Server configuration
-HOST = '127.0.0.1'  # Localhost
-PORT = 8080          # Port to listen on
+HOST = '127.0.0.1'  
+PORT =  int(sys.argv[1])     
 
-def handle_request(client_socket):
-    request = client_socket.recv(1024).decode()
-    print(f"Received request:\n{request}")
+def handle_connection(connection_socket):
+    keep_alive = True
+    while keep_alive:
+        print("Starts listening for new requests sent to this connection socket...")
 
-    # Split request into lines
-    lines = request.splitlines()
-    if len(lines) > 0:
-        # Get the first line (request line)
-        request_line = lines[0]
-        # Parse the request line
-        method, path, _ = request_line.split()
+        try:
+            request = connection_socket.recv(1024).decode()
+        except socket.timeout:
+            print("Timed out while waiting for client request.")
+            break
 
-        if method == 'GET':
-            # Strip the leading '/' from the path
-            filename = path.lstrip('/')
-
-            # Check if file exists
-            if os.path.isfile(filename):
-                with open(filename, 'rb') as f:
-                    content = f.read()
-                # Create HTTP response header
-                response_header = 'HTTP/1.1 200 OK\r\n'
-                response_header += 'Content-Length: {}\r\n'.format(len(content))
-                response_header += 'Connection: keep-alive\r\n\r\n'  # Persistent connection
-                # Send the response
-                client_socket.sendall(response_header.encode() + content)
-            else:
-                # File not found
-                response_header = 'HTTP/1.1 404 Not Found\r\n'
-                response_header += 'Connection: close\r\n\r\n'  # Close the connection for 404
-                response_body = '<h1>404 Not Found</h1>'
-                client_socket.sendall(response_header.encode() + response_body.encode())
-        else:
-            # Method not allowed
-            response_header = 'HTTP/1.1 405 Method Not Allowed\r\n'
+        lines = request.splitlines()
+        if len(lines) == 0:
+            print("Recieved an empty request\n"
+                  "Telling the client that we wish the connection closed")
+            response_header = 'HTTP/1.1 200 OK\r\n'
             response_header += 'Connection: close\r\n\r\n'
-            client_socket.sendall(response_header.encode())
-    client_socket.close()
+            connection_socket.sendall(response_header.encode())
+            break
 
-def start_server():
-    # Create a TCP socket
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(1)  # Listen for incoming connections
-    print(f'Server listening on {HOST}:{PORT}')
+        else:
+            print("New request recieved! Printing request for examination...")
+            print("-------------Start of request-------------")
+            print(request) 
+            print("-------------End of request---------------")
+            print("Printing finished! Parsing & handling request...")
+            
+            if 'Connection: close' in lines:
+                keep_alive = False
 
-    while True:
-        # Accept a connection from a client
-        client_socket, addr = server_socket.accept()
-        print(f'Connection from {addr}')
+            request_line = lines[0]
+            method, path, version = request_line.split()
+
+            if method == 'GET' and version == 'HTTP/1.1':
+                filename = path.lstrip('/')
+
+                if filename == "favicon.ico":
+                    print("This is a request for the icon to be displayed in browser's address bar\n"
+                          "Sending 204 to client...")
+                    response_header = 'HTTP/1.1 204 No Content\r\n'
+                    response_header += 'Connection: close\r\n\r\n'
+                    response_body = '<h1>204 No Content</h1>'
+                    connection_socket.sendall(response_header.encode() + response_body.encode())
+
+                elif os.path.isfile(filename):
+                    print("The server has the requested file!\n" 
+                          "Sending it to client...")
+                    with open(filename, 'rb') as f: # 'rb' read file as binary 
+                        content = f.read()  
+                    
+                    response_header = 'HTTP/1.1 200 OK\r\n'
+                    response_header += f'Content-Length: {len(content)}\r\n'
+                    response_header += 'Connection: keep-alive\r\n\r\n'  
+                    connection_socket.sendall(response_header.encode() + content)
+                else:
+                    print("The server does not have the requested file!\n"
+                          "Sending 404 to client...")
+                    response_header = 'HTTP/1.1 404 Not Found\r\n'
+                    response_header += 'Connection: close\r\n\r\n' 
+                    response_body = '<h1>404 Not Found</h1>'
+                    connection_socket.sendall(response_header.encode() + response_body.encode())
+            else:
+                print("The server is not configuted to handle this request!\n"
+                      "Sending 400 to client...")
+                response_header = 'HTTP/1.1 400 Bad Request\r\n'
+                response_header += 'Connection: close\r\n\r\n'
+                connection_socket.sendall(response_header.encode())
         
-        # Handle the request
-        handle_request(client_socket)
+            print("A request have been successfully handled!")
+    
+    print("No more requests anticipatd from this connection, closing connection socket...")
+    connection_socket.close()
 
-if __name__ == '__main__':
-    start_server()
+
+welcoming_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+welcoming_socket.bind((HOST, PORT))
+
+welcoming_socket.listen(1)  # specifies the backlog (number of pending connections that can be queued).
+welcoming_socket.settimeout(30) # set a timeout for welcoming socket
+
+while True:
+    print(f'\nStarts listening on port: {PORT} for new connection request...')
+
+    try:
+        connection_socket, client_addr = welcoming_socket.accept()
+    except socket.timeout:
+        print("Timed out while waiting for connection request\n"
+              "Shutting down server...")
+        welcoming_socket.close()
+        break
+
+    connection_socket.settimeout(30) # set a timeout for connection socket
+
+    print(f'New connection request from: <IP: {client_addr[0]}, Port: {client_addr[1]}>')
+    print('A new connection socket has been created for this client')
+    print('Handling the connection...')
+    handle_connection(connection_socket)
+
