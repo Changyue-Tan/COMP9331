@@ -84,9 +84,6 @@ def handle_connection(connection_socket):
             print("-------------End of request---------------")
             print("Printing finished! Parsing & handling request...")
 
-            if "Connection: close" in lines:
-                keep_alive = False
-
             request_line = lines[0]
             method, path, version = request_line.split()
 
@@ -98,6 +95,7 @@ def handle_connection(connection_socket):
                           "Sending 204 to client...")
                     response_header = 'HTTP/1.1 204 No Content\r\n'
                     response_header += 'Connection: keep-alive\r\n'
+                    response_header += 'Content-Length: 0\r\n'
                     response_header += '\r\n'
                     connection_socket.sendall(response_header.encode())
 
