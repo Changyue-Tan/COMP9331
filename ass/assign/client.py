@@ -14,10 +14,13 @@ def downloading_sequence(peer_port_number, download_filename, peername):
     download_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     peer_address = ('localhost', int(peer_port_number))
     
-    print(f"Connecting to peer at {peer_address} to download '{filename}'...")
+    print(f"Connecting to {peername} at {peer_address}")
     download_socket.connect(peer_address)
+    print("Connection established!")
+    print(f"Telling peer which file is wanted:'{filename}'...")
+    download_socket.sendall(download_filename.encode())
 
-    with open(f"downloaded_{download_filename}", "wb") as f:
+    with open(f"{download_filename}", "wb") as f:
         print(f"Downloading '{download_filename}' from {peername}...")
         while True:
             data = download_socket.recv(1024)  # Receive in 1KB chunks
@@ -29,17 +32,20 @@ def downloading_sequence(peer_port_number, download_filename, peername):
     print(f"Closing P2P connection with {peername}...")
     download_socket.close()
     
-def uploading_sequence(upload_socket, upload_filename, peer_address):
-
+def uploading_sequence(upload_socket, peer_address):
+    
+    print("Recieving which file this peer wants...")
+    requested_filename = upload_socket.recv(1024).decode()
+    print(f"Peer wants {requested_filename}")
     print("Sending data...")
-    with open(upload_filename, "rb") as f:
+    with open(requested_filename, "rb") as f:
             while True:
                 data = f.read(1024)  # Send the file in chunks
                 if not data:
                     break
                 upload_socket.send(data)
 
-    print(f"'{upload_filename}' uploaded successfully!")
+    print(f"'{requested_filename}' uploaded successfully!")
     print(f"Closing P2P connection with {peer_address}...")
     upload_socket.close()
 
@@ -56,15 +62,18 @@ def create_welcoming_socket():
     welcoming_socket.listen()
     while not stop_welcome:
         upload_socket, client_addr = welcoming_socket.accept()
-        print(f"New P2P connection from {client_addr}")
-        print(f"Starting file uploading sequence to {client_addr}...")
+        print(f"New P2P connection from {client_addr}") # We do not know the peer's name here
         
         if not stop_welcome:
-            UPLOAD_thread = threading.Thread(target=uploading_sequence, args=(upload_socket, filename, client_addr))
+            print(f"Starting file uploading sequence to {client_addr}...")
+            UPLOAD_thread = threading.Thread(target=uploading_sequence, args=(upload_socket, client_addr))
             UPLOAD_thread.start()
             upload_threads.append(UPLOAD_thread)
+        else:
+            print("STOP_WELCOME_FLAG is set, this is a psuedo request")
+            print("Welcoming_socket stops accepting connection")
 
-    print("Closing TCP welcoming socket...")
+    print("Closing welcoming socket...")
     welcoming_socket.close()
 
 def send_heartbeat(client_socket, username):
@@ -170,7 +179,8 @@ def handle_get_request(filename):
     if server_response[0] == "OK":
         arbitary_available_user = server_response[1]
         address_of_available_user = server_response[2] # address wil only be port number
-        print(f"User \"{arbitary_available_user}\" has \"{filename}\" and is currently online at port: {address_of_available_user}")
+        print(f"User {arbitary_available_user} has {filename}") 
+        print(f"{arbitary_available_user} is currently online with welcoming port: {address_of_available_user}")    
         print(f"Starting file downloading sequence from {arbitary_available_user}...")
         
         DOWNLOAD_thread = threading.Thread(target=downloading_sequence, args=(address_of_available_user, filename, arbitary_available_user))
@@ -272,7 +282,7 @@ while True:
         case _:
             print("Unknown command. Please try again.")
 
-print("Closing welcoming thread...")
+
 stop_welcome = True
 
 # Open a connection to the welcoming socket to unblock the accept() call
@@ -280,22 +290,27 @@ temp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 temp_socket.connect(('localhost', welcoming_port_number))
 temp_socket.close()
 
+print("Waiting for WELCOME_thread to finish...")
 WELCOME_thread.join()
+print("WELCOME_thread finished")
 
-print("Closing heartbeat thread..")
 stop_heartbeat = True
+print("Waiting for HB_thread to finish...")
 HB_thread.join()
+print("HB_thread finished")
 
 print("Closing UDP socket with server...")
 client_socket.close()
 
-print("Waiting for uploads to finish...")
+print("Waiting for P2P uploads to finish...")
 for thread in upload_threads:
     thread.join() 
+    print("uploads finished")
 
-print("Waiting for downloads to finish...")
+print("Waiting for P2P downloads to finish...")
 for thread in download_threads:
     thread.join()
+    print("downloads finished")
 
 print("Client is now offline")
 
