@@ -71,6 +71,10 @@ def handle_HBT():
     receive_request("HBT")
     heartbeats_record[username] = time.time()
 
+    welcoming_port_number = client_request[2]
+    contact_book[username] = welcoming_port_number
+    # print(contact_book)
+
 def handle_LAP():
     receive_request("LAP")
 
@@ -119,6 +123,26 @@ def handle_UNP():
     response_content = ''
     send_response(response_type, response_content)
 
+def handle_SCH():
+    receive_request("SCH")
+    substring = client_request[2]
+    list_of_files_found = str()
+    number_of_files_found = 0
+    response_type = 'ERR'
+    # print(substring)
+
+    for user in active_clients:
+        if user == username:
+            continue
+        for filename in file_publishing_users[user]:
+            if substring in filename:
+                list_of_files_found += ' '
+                list_of_files_found += filename
+                number_of_files_found += 1
+                response_type = 'OK'
+    
+    response_content = f'{number_of_files_found}{list_of_files_found}'
+    send_response(response_type, response_content)
 
 server_port = int(sys.argv[1])
 server_IP = '127.0.0.1'
@@ -131,8 +155,9 @@ active_clients = set() # a set for unique usernames
 heartbeats_record = {username: 0 for username in credentials}  # last heartbeat time for each user, initialised to be 0
 published_files = {} # <filename: {set of clients with this file avaliable}>
 file_publishing_users = {username: set() for username in credentials} # <username: {set of files published by this user}>
+contact_book = {} # <username(could be offline): (last known) welcoming port number>
 
-print("Server now starting...")
+print("Server is now online")
 while True:
     client_request, client_address = server_socket.recvfrom(1024)
     client_request = client_request.decode().split(' ')
@@ -152,4 +177,6 @@ while True:
             handle_PUB()
         case "UNP":
             handle_UNP()
+        case "SCH":
+            handle_SCH()
 

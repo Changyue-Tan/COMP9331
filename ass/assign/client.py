@@ -3,13 +3,43 @@ import time
 import socket
 import sys
 
+stop_welcome = False
+stop_heartbeat = False
+welcoming_port_ready = threading.Event()
+welcoming_port_number = None
+
+def create_welcoming_socket():
+    welcoming_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    welcoming_socket.bind(('localhost', 0)) 
+    global welcoming_port_number 
+    welcoming_port_number = welcoming_socket.getsockname()[1]  
+
+    welcoming_port_ready.set()
+
+    # print(f'Listening for p2p TCP connection request from port: {welcoming_port_number}')
+    welcoming_socket.listen()
+    while not stop_welcome:
+        client_socket, client_addr = welcoming_socket.accept()
+        print(f"New p2p connection from {client_addr}")
+        print('DO SOMETHING')
+        print(f"Closing p2p connection with {client_addr}...")
+        client_socket.close()
+
+    print("Closing TCP welcoming socket...")
+    welcoming_socket.close()
+
 def send_heartbeat(client_socket, username):
     '''
     send hearbeat to server at interval of 2 seconds
     to be used as a thread
     '''
     heartbeat_code = "HBT"
-    heartbeat_msg = f"{heartbeat_code} {username}"
+
+    welcoming_port_ready.wait() # wait for welcoming socket to be created in another thread
+    # print(welcoming_port_number)
+    # welcoming port number will be sent as well
+    heartbeat_msg = f"{heartbeat_code} {username} {welcoming_port_number}"
     while not stop_heartbeat:
         client_socket.sendto(heartbeat_msg.encode(), server_address)
         time.sleep(2)
@@ -77,6 +107,23 @@ def handle_unp_request(filename):
     else:
         print("File unpublication failed")
 
+def handle_sch_request(substring):
+    request_code = "SCH"
+    request_msg = f"{request_code} {username} {substring}"
+    server_response = send_and_recieve(request_msg)
+    # print(server_response)
+
+    if server_response[0] == "OK":
+        number_files_found = server_response[1]
+        if number_files_found == '1':
+            print("1 file found:")
+        else:
+            print(f"{number_files_found} files found:")
+        for filename in server_response[2:]:
+            print(filename)
+    else:
+        print("File not found")
+
 # create socket
 server_port = int(sys.argv[1])
 server_IP = '127.0.0.1'
@@ -98,15 +145,27 @@ while True:
 
     if respose_type == "OK":
         print("Welcome to BitTrickle!")
+        print("Starting client booting sequence...")
         break
     else:
         print("Authentication failed. Please try again.")
 
+# start TCP welcoming thread
+WELCOME_thread = threading.Thread(target=create_welcoming_socket)
 # start heartbeat thread
 HB_thread = threading.Thread(target=send_heartbeat, args=(client_socket, username))
-stop_heartbeat = False
-print("Starting heartbeat...")
+
+
+
+print("Starting welcoming thread...")
+WELCOME_thread.start()
+
+# welcoming port number will be sent via heart beat
+
+print("Starting heartbeat thread...")
 HB_thread.start()
+
+print("Client is now online")
 
 # prompt for user cmd
 print("Available commands are: get, lap, lpf, pub, sch, unp, xit")
@@ -114,6 +173,7 @@ while True:
     command = input("> ").strip().split(" ")
     request_type = command[0]
     request_content = None
+
     if len(command) > 1:
         request_content = command[1]
     
@@ -123,7 +183,8 @@ while True:
                 print("Missing filename")
             else:
                 filename = request_content
-                print(f"Attempting to get file '{filename}' from active peers...")
+                # print(f"Attempting to get file '{filename}' from active peers...")
+                handle_get_request(filename)
         case "lap":
             handle_lap_request()
         case "lpf":
@@ -136,10 +197,11 @@ while True:
                 handle_pub_request(filename)
         case "sch":
             if request_content == None:
-                print("Missing keyword")
+                print("Missing substring")
             else: 
-                keyword = request_content
-                print(f"Searching for files containing '{keyword}'...")
+                substring = request_content
+                # print(f"Searching for files containing '{substring}'...")
+                handle_sch_request(substring)
         case "unp":
             if request_content == None:
                 print("Missing filename")
@@ -147,17 +209,30 @@ while True:
                 filename = request_content
                 handle_unp_request(filename)
         case "xit":
-            print("Exiting BitTrickle...")
+            print("Starting client shutdown sequence...")
+            print("A psuedo request will be sent to welcoming socket")
             break
-        case "_":
+        case _:
             print("Unknown command. Please try again.")
 
-# stop heartbeat thread and close UDP cocket
-print("Stoping heartbeat...")
+print("Closing welcoming thread...")
+stop_welcome = True
+
+# Open a connection to the welcoming socket to unblock the accept() call
+temp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+temp_socket.connect(('localhost', welcoming_port_number))
+temp_socket.close()
+
+WELCOME_thread.join()
+
+print("Closing heartbeat thread..")
 stop_heartbeat = True
 HB_thread.join()
-print("Closing socket...")
+
+print("Closing UDP socket with server...")
 client_socket.close()
+
+print("Client is now offline")
 
 
     
