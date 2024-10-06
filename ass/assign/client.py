@@ -58,6 +58,7 @@ def create_welcoming_socket():
         upload_socket, client_addr = welcoming_socket.accept()
         print(f"New P2P connection from {client_addr}")
         print(f"Starting file uploading sequence to {client_addr}...")
+        
         if not stop_welcome:
             UPLOAD_thread = threading.Thread(target=uploading_sequence, args=(upload_socket, filename, client_addr))
             UPLOAD_thread.start()
