@@ -132,7 +132,9 @@ def handle_SCH():
     # print(substring)
 
     for user in active_clients:
+        # print(active_clients)
         if user == username:
+            # print('HEY')
             continue
         for filename in file_publishing_users[user]:
             if substring in filename:
@@ -142,6 +144,25 @@ def handle_SCH():
                 response_type = 'OK'
     
     response_content = f'{number_of_files_found}{list_of_files_found}'
+    send_response(response_type, response_content)
+
+
+def handle_GET():
+    receive_request("GET")
+    filename = client_request[2]
+    response_type = 'ERR'
+    arbitary_available_user = ''
+    address_of_available_user = ''
+
+    for file, available_users in published_files.items():
+        if file == filename and available_users != set():
+            arbitary_available_user = next(iter(available_users))
+            if arbitary_available_user in active_clients and arbitary_available_user != username:
+                response_type = 'OK'
+                address_of_available_user = contact_book[arbitary_available_user]
+                break
+
+    response_content = f'{arbitary_available_user} {address_of_available_user}'
     send_response(response_type, response_content)
 
 server_port = int(sys.argv[1])
@@ -159,6 +180,10 @@ contact_book = {} # <username(could be offline): (last known) welcoming port num
 
 print("Server is now online")
 while True:
+    
+    for user in active_clients.copy():
+        check_active(user)
+
     client_request, client_address = server_socket.recvfrom(1024)
     client_request = client_request.decode().split(' ')
     client_port = client_address[1]
@@ -179,4 +204,6 @@ while True:
             handle_UNP()
         case "SCH":
             handle_SCH()
+        case "GET":
+            handle_GET()
 

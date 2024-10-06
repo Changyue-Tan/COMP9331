@@ -7,24 +7,61 @@ stop_welcome = False
 stop_heartbeat = False
 welcoming_port_ready = threading.Event()
 welcoming_port_number = None
+download_threads = []  
+upload_threads = []  
+
+def downloading_sequence(peer_port_number, download_filename, peername):
+    download_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    peer_address = ('localhost', int(peer_port_number))
+    
+    print(f"Connecting to peer at {peer_address} to download '{filename}'...")
+    download_socket.connect(peer_address)
+
+    with open(f"downloaded_{download_filename}", "wb") as f:
+        print(f"Downloading '{download_filename}' from {peername}...")
+        while True:
+            data = download_socket.recv(1024)  # Receive in 1KB chunks
+            if not data:
+                break
+            f.write(data)
+    
+    print(f"'{download_filename}' downloaded successfully!")
+    print(f"Closing P2P connection with {peername}...")
+    download_socket.close()
+    
+def uploading_sequence(upload_socket, upload_filename, peer_address):
+
+    print("Sending data...")
+    with open(upload_filename, "rb") as f:
+            while True:
+                data = f.read(1024)  # Send the file in chunks
+                if not data:
+                    break
+                upload_socket.send(data)
+
+    print(f"'{upload_filename}' uploaded successfully!")
+    print(f"Closing P2P connection with {peer_address}...")
+    upload_socket.close()
 
 def create_welcoming_socket():
     welcoming_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    welcoming_socket.bind(('localhost', 0)) 
+    welcoming_socket.bind(('localhost', 0)) # 0 means the OS can choose any available port
     global welcoming_port_number 
     welcoming_port_number = welcoming_socket.getsockname()[1]  
 
     welcoming_port_ready.set()
 
-    # print(f'Listening for p2p TCP connection request from port: {welcoming_port_number}')
+    # print(f'Listening for P2P TCP connection request from port: {welcoming_port_number}')
     welcoming_socket.listen()
     while not stop_welcome:
-        client_socket, client_addr = welcoming_socket.accept()
-        print(f"New p2p connection from {client_addr}")
-        print('DO SOMETHING')
-        print(f"Closing p2p connection with {client_addr}...")
-        client_socket.close()
+        upload_socket, client_addr = welcoming_socket.accept()
+        print(f"New P2P connection from {client_addr}")
+        print(f"Starting file uploading sequence to {client_addr}...")
+        if not stop_welcome:
+            UPLOAD_thread = threading.Thread(target=uploading_sequence, args=(upload_socket, filename, client_addr))
+            UPLOAD_thread.start()
+            upload_threads.append(UPLOAD_thread)
 
     print("Closing TCP welcoming socket...")
     welcoming_socket.close()
@@ -123,6 +160,25 @@ def handle_sch_request(substring):
             print(filename)
     else:
         print("File not found")
+
+def handle_get_request(filename):
+    request_code = "GET"
+    request_msg = f"{request_code} {username} {filename}"
+    server_response = send_and_recieve(request_msg)
+
+    if server_response[0] == "OK":
+        arbitary_available_user = server_response[1]
+        address_of_available_user = server_response[2] # address wil only be port number
+        print(f"User \"{arbitary_available_user}\" has \"{filename}\" and is currently online at port: {address_of_available_user}")
+        print(f"Starting file downloading sequence from {arbitary_available_user}...")
+        
+        DOWNLOAD_thread = threading.Thread(target=downloading_sequence, args=(address_of_available_user, filename, arbitary_available_user))
+        DOWNLOAD_thread.start()
+        download_threads.append(DOWNLOAD_thread)
+
+    else:
+        print("No file found")
+
 
 # create socket
 server_port = int(sys.argv[1])
@@ -231,6 +287,14 @@ HB_thread.join()
 
 print("Closing UDP socket with server...")
 client_socket.close()
+
+print("Waiting for uploads to finish...")
+for thread in upload_threads:
+    thread.join() 
+
+print("Waiting for downloads to finish...")
+for thread in download_threads:
+    thread.join()
 
 print("Client is now offline")
 
