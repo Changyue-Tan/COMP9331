@@ -128,7 +128,7 @@ def handle_SCH():
     substring = client_request[2]
     list_of_files_found = str()
     number_of_files_found = 0
-    response_type = 'ERR'
+    response_type = 'OK'
     files_found = set()
     # print(substring)
 
@@ -147,7 +147,7 @@ def handle_SCH():
                     list_of_files_found += ' '
                     list_of_files_found += filename
                     number_of_files_found += 1
-                    response_type = 'OK'
+                    # response_type = 'OK'
     
     response_content = f'{number_of_files_found}{list_of_files_found}'
     send_response(response_type, response_content)

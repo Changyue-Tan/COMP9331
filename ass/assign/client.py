@@ -97,6 +97,25 @@ def send_and_recieve(request_msg):
     server_response = server_response.decode().split(' ')
     return server_response
 
+def handle_get_request(filename):
+    request_code = "GET"
+    request_msg = f"{request_code} {username} {filename}"
+    server_response = send_and_recieve(request_msg)
+
+    if server_response[0] == "OK":
+        arbitary_available_user = server_response[1]
+        address_of_available_user = server_response[2] # address wil only be port number
+        print(f"User {arbitary_available_user} has {filename}") 
+        print(f"{arbitary_available_user} is currently online with welcoming port: {address_of_available_user}")    
+        print(f"Starting file downloading sequence from {arbitary_available_user}...")
+        
+        DOWNLOAD_thread = threading.Thread(target=downloading_sequence, args=(address_of_available_user, filename, arbitary_available_user))
+        DOWNLOAD_thread.start()
+        download_threads.append(DOWNLOAD_thread)
+
+    else:
+        print("No file found")
+
 def handle_lap_request():
     request_code = "LAP"
     request_msg = f"{request_code} {username}"
@@ -162,33 +181,16 @@ def handle_sch_request(substring):
 
     if server_response[0] == "OK":
         number_files_found = server_response[1]
-        if number_files_found == '1':
+        if number_files_found == '0':
+            print("File not found")
+            return
+        elif number_files_found == '1':
             print("1 file found:")
         else:
             print(f"{number_files_found} files found:")
+        
         for filename in server_response[2:]:
             print(filename)
-    else:
-        print("File not found")
-
-def handle_get_request(filename):
-    request_code = "GET"
-    request_msg = f"{request_code} {username} {filename}"
-    server_response = send_and_recieve(request_msg)
-
-    if server_response[0] == "OK":
-        arbitary_available_user = server_response[1]
-        address_of_available_user = server_response[2] # address wil only be port number
-        print(f"User {arbitary_available_user} has {filename}") 
-        print(f"{arbitary_available_user} is currently online with welcoming port: {address_of_available_user}")    
-        print(f"Starting file downloading sequence from {arbitary_available_user}...")
-        
-        DOWNLOAD_thread = threading.Thread(target=downloading_sequence, args=(address_of_available_user, filename, arbitary_available_user))
-        DOWNLOAD_thread.start()
-        download_threads.append(DOWNLOAD_thread)
-
-    else:
-        print("No file found")
 
 
 # create socket
@@ -305,12 +307,12 @@ client_socket.close()
 print("Waiting for P2P uploads to finish...")
 for thread in upload_threads:
     thread.join() 
-    print("uploads finished")
+    # print("upload finished")
 
 print("Waiting for P2P downloads to finish...")
 for thread in download_threads:
     thread.join()
-    print("downloads finished")
+    # print("download finished")
 
 print("Client is now offline")
 
