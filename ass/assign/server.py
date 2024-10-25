@@ -129,6 +129,7 @@ def handle_SCH():
     list_of_files_found = str()
     number_of_files_found = 0
     response_type = 'ERR'
+    files_found = set()
     # print(substring)
 
     for user in active_clients:
@@ -138,10 +139,15 @@ def handle_SCH():
             continue
         for filename in file_publishing_users[user]:
             if substring in filename:
-                list_of_files_found += ' '
-                list_of_files_found += filename
-                number_of_files_found += 1
-                response_type = 'OK'
+                if filename not in file_publishing_users[username]:
+                    if filename in files_found:
+                        continue
+                    else:
+                        files_found.add(filename)
+                    list_of_files_found += ' '
+                    list_of_files_found += filename
+                    number_of_files_found += 1
+                    response_type = 'OK'
     
     response_content = f'{number_of_files_found}{list_of_files_found}'
     send_response(response_type, response_content)
