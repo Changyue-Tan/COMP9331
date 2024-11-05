@@ -3,6 +3,7 @@ import time
 import socket
 import sys
 
+# global varibles
 stop_welcome = False
 stop_heartbeat = False
 welcoming_port_ready = threading.Event()
@@ -10,6 +11,7 @@ welcoming_port_number = None
 download_threads = []  
 upload_threads = []  
 
+# Downloading Sequence, will be run as a thread
 def downloading_sequence(peer_port_number, download_filename, peername):
     download_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     peer_address = ('localhost', int(peer_port_number))
@@ -31,7 +33,8 @@ def downloading_sequence(peer_port_number, download_filename, peername):
     print(f"'{download_filename}' downloaded successfully!")
     print(f"Closing P2P connection with {peername}...")
     download_socket.close()
-    
+
+# Uploading Sequence, will be run as a thread
 def uploading_sequence(upload_socket, peer_address):
     
     print("Recieving which file this peer wants...")
@@ -49,6 +52,8 @@ def uploading_sequence(upload_socket, peer_address):
     print(f"Closing P2P connection with {peer_address}...")
     upload_socket.close()
 
+# A welcoming sockets taht listens for download request from peers
+# Will create separate thread to handle each uploading sequence
 def create_welcoming_socket():
     welcoming_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
@@ -58,7 +63,7 @@ def create_welcoming_socket():
 
     welcoming_port_ready.set()
 
-    # print(f'Listening for P2P TCP connection request from port: {welcoming_port_number}')
+    print(f'Listening for P2P TCP connection request from port: {welcoming_port_number}')
     welcoming_socket.listen()
     while not stop_welcome:
         upload_socket, client_addr = welcoming_socket.accept()
@@ -76,21 +81,18 @@ def create_welcoming_socket():
     print("Closing welcoming socket...")
     welcoming_socket.close()
 
+# a heartbeat function that will be run as a thread
 def send_heartbeat(client_socket, username):
-    '''
-    send hearbeat to server at interval of 2 seconds
-    to be used as a thread
-    '''
     heartbeat_code = "HBT"
 
     welcoming_port_ready.wait() # wait for welcoming socket to be created in another thread
-    # print(welcoming_port_number)
-    # welcoming port number will be sent as well
+    # welcoming port number will be sent as an addresss 
     heartbeat_msg = f"{heartbeat_code} {username} {welcoming_port_number}"
     while not stop_heartbeat:
         client_socket.sendto(heartbeat_msg.encode(), server_address)
         time.sleep(2)
 
+# handle a single back and forth communication
 def send_and_recieve(request_msg):
     client_socket.sendto(request_msg.encode(), server_address)
     server_response, _ = client_socket.recvfrom(1024)

@@ -3,6 +3,7 @@ import sys
 import datetime
 import time
 
+# load credentials informatin from local directory to a dictionary data structure
 def load_credentials(credentials_file):
     credentials = {}
     with open(credentials_file, 'r') as f:
@@ -11,16 +12,19 @@ def load_credentials(credentials_file):
             credentials[username] = password
     return credentials
 
+# display message received from clients for logging and debugging
 def display_msg_recieved(client_port, request_type, username):
     current_time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
     msg = f"Received {request_type} from {username}"
     print(f"{current_time}: {client_port}: {msg}")
 
+# display message sent to clients for logging and debugging
 def display_msg_sent(client_port, response_type, username):
     current_time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
     msg = f"Sent {response_type} to {username}"
     print(f"{current_time}: {client_port}: {msg}")
 
+# refresh the active_clients sets using the most recent heartbeats_record
 def check_active(username):
     if username not in heartbeats_record:
         return False
@@ -37,6 +41,7 @@ def check_active(username):
     else:
         False
 
+# validate if the credentials sent by the client matches server's dictionary
 def check_credentials(username, password):
     return username in credentials and credentials[username] == password
 
@@ -51,10 +56,6 @@ def send_response(response_type, response_content):
     display_msg_sent(client_port, response_type, username)
 
 def handle_AUTH():
-    '''
-    respond to client with "ERR" if username is already active, or credentials not match
-    respond to client wtih "OK" if if successfuly added client to active_clients set
-    '''
     receive_request("AUTH")
     password = client_request[2]
 
