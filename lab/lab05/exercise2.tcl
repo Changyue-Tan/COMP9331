@@ -1,5 +1,5 @@
 #Create a simulator object
->>
+set ns [new Simulator]
 
 #Define different colors
 $ns color 1 Blue
@@ -12,7 +12,7 @@ set namf [open out.nam w]
 $ns namtrace-all $namf
 
 set f1 [open tcp1.tr w]
->>
+set f2 [open tcp2.tr w]
 
 #Define a 'finish' procedure
 proc finish {} {
@@ -31,15 +31,33 @@ proc finish {} {
 
 #Create eight nodes
 set n0 [$ns node]
->>
-
+set n1 [$ns node]
+set n2 [$ns node]
+set n3 [$ns node]
+set n4 [$ns node]
+set n5 [$ns node]
+set n6 [$ns node]
+set n7 [$ns node]
 
 #Create links between the nodes
 $ns duplex-link $n0 $n1 10Mb 10ms DropTail
->>
+$ns duplex-link $n1 $n2 2.5Mb 40ms DropTail
+$ns duplex-link $n1 $n6 2.5Mb 40ms DropTail
+$ns duplex-link $n2 $n3 10Mb 10ms DropTail
+$ns duplex-link $n2 $n4 2.5Mb 40ms DropTail
+$ns duplex-link $n4 $n6 2.5Mb 40ms DropTail
+$ns duplex-link $n4 $n5 10Mb 10ms DropTail
+$ns duplex-link $n6 $n7 10Mb 10ms DropTail
+
 # set the correct orientation for all nodes
 $ns duplex-link-op $n0 $n1 orient right
->>
+$ns duplex-link-op $n1 $n2 orient up
+$ns duplex-link-op $n1 $n6 orient right
+$ns duplex-link-op $n2 $n3 orient left
+$ns duplex-link-op $n2 $n4 orient right
+$ns duplex-link-op $n4 $n6 orient down
+$ns duplex-link-op $n4 $n5 orient right
+$ns duplex-link-op $n6 $n7 orient right
 
 #Set Queue limit and Monitor the queue for the link between node 2 and node 4
 $ns queue-limit $n2 $n4 10
@@ -62,38 +80,52 @@ set ftp1 [new Application/FTP]
 $ftp1 attach-agent $tcp1
 
 #Create a TCP agent and attach it to node n3
->>
+set tcp2 [new Agent/TCP]
+$ns attach-agent $n3 $tcp2
+
 #Sink for traffic at Node n5
->>
+set sink2 [new Agent/TCPSink]
+$ns attach-agent $n5 $sink2
+
 #Connect
->>
+$ns connect $tcp2 $sink2
+$tcp2 set fid_ 2
+
 #Setup FTP over TCP connection
->>
+set ftp2 [new Application/FTP]
+$ftp2 attach-agent $tcp2
 
 #Create a TCP agent and attach it to node n7
->>
+set tcp3 [new Agent/TCP]
+$ns attach-agent $n7 $tcp3
 
 #Sink for traffic at Node n0
->>
+set sink3 [new Agent/TCPSink]
+$ns attach-agent $n0 $sink3
 
 #Connect
->>
+$ns connect $tcp3 $sink3
+$tcp3 set fid_ 3
 
 #Setup FTP over TCP connection
->>
-
+set ftp3 [new Application/FTP]
+$ftp3 attach-agent $tcp3
 
 #Create a TCP agent and attach it to node n7
->>
+set tcp4 [new Agent/TCP]
+$ns attach-agent $n7 $tcp4
 
 #Sink for traffic at Node n3
->>
+set sink4 [new Agent/TCPSink]
+$ns attach-agent $n3 $sink4
 
 #Connect
->>
+$ns connect $tcp4 $sink4
+$tcp3 set fid_ 4
 
 #Setup FTP over TCP connection
->>
+set ftp4 [new Application/FTP]
+$ftp4 attach-agent $tcp4
 
 proc record {} {
 >>
